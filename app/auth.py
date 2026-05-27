@@ -7,7 +7,7 @@ import secrets
 import hashlib
 import jwt
 import bcrypt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 from fastapi import Depends, HTTPException, Request
@@ -33,8 +33,8 @@ def verify_password(password: str, hashed: str) -> bool:
 def create_access_token(user_id: str) -> str:
     payload = {
         "sub": str(user_id),
-        "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
@@ -63,11 +63,11 @@ async def get_current_user(
         api_key = result.scalar_one_or_none()
         if not api_key:
             raise HTTPException(status_code=401, detail="Invalid API key")
-        if api_key.expires_at and api_key.expires_at < datetime.utcnow():
+        if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
             raise HTTPException(status_code=401, detail="API key expired")
         
         # Update last_used (fire and forget)
-        api_key.last_used = datetime.utcnow()
+        api_key.last_used = datetime.now(timezone.utc)
         await db.commit()
         
         user = (await db.execute(

@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # ─── API Application ────────────────────────────────────────────────────────
   api:
@@ -7,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://ctquser:ctqpass@postgres:5432/cleantech_api
       - REDIS_URL=redis://redis:6379
@@ -73,7 +71,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ctquser"]
+      test: ["CMD-SHELL", "pg_isready -U ctquser -d cleantech_api"]
       interval: 10s
       timeout: 5s
       retries: 5

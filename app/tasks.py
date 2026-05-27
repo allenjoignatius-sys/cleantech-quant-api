@@ -11,7 +11,7 @@ All background work runs through these tasks:
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from celery import Celery
 from celery.schedules import crontab
 
@@ -97,7 +97,7 @@ def scraper_cycle(self):
     Run all scrapers (Crossref, EPO, IRENA, ProjectIntelligence).
     Deduplicates and upserts new data into the database.
     """
-    logger.info(f"[{datetime.utcnow().isoformat()}] Starting scraper cycle")
+    logger.info(f"[{datetime.now(timezone.utc).isoformat()}] Starting scraper cycle")
     try:
         from app.scrapers.runner import run_once
         stats = run_async(run_once())
@@ -150,7 +150,7 @@ async def _check_alerts_async():
 
                 if triggered:
                     alert.trigger_count = (alert.trigger_count or 0) + 1
-                    alert.last_triggered = datetime.utcnow()
+                    alert.last_triggered = datetime.now(timezone.utc)
                     await db.commit()
                     # Queue notification delivery
                     deliver_alert_notification.delay(
@@ -215,7 +215,7 @@ async def _check_cost_movement(db, alert) -> tuple[bool, dict]:
     window_days = conds.get("window_days", 7)
     min_pct = conds.get("pct_change", 5.0)
 
-    cutoff = datetime.utcnow() - timedelta(days=window_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
     query = select(CostDatapoint)
     if geography:
         query = query.where(CostDatapoint.geography.ilike(f"%{geography}%"))
@@ -249,7 +249,7 @@ async def _check_project_fid(db, alert) -> tuple[bool, dict]:
     conds = alert.conditions or {}
     milestone = conds.get("milestone", "fid")
     countries = conds.get("countries")
-    since = alert.last_triggered or (datetime.utcnow() - timedelta(hours=1))
+    since = alert.last_triggered or (datetime.now(timezone.utc) - timedelta(hours=1))
 
     query = select(Project).where(
         Project.updated_at >= since,
@@ -275,7 +275,7 @@ async def _check_patent_filing(db, alert) -> tuple[bool, dict]:
 
     conds = alert.conditions or {}
     assignees = conds.get("assignees", [])
-    since = alert.last_triggered or (datetime.utcnow() - timedelta(hours=24))
+    since = alert.last_triggered or (datetime.now(timezone.utc) - timedelta(hours=24))
 
     query = select(Patent).where(Patent.created_at >= since)
     if assignees:
@@ -355,7 +355,7 @@ async def _send_alert_email(to_email: str, alert_name: str, trigger_data: dict):
             subject=f"[NH₃ Intelligence] Alert triggered: {alert_name}",
             html_content=f"""
             <h2 style="color:#0F6E56">Alert Triggered: {alert_name}</h2>
-            <p>Your alert was triggered at {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}.</p>
+            <p>Your alert was triggered at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}.</p>
             <pre style="background:#f5f5f5;padding:12px;border-radius:4px">{str(trigger_data)}</pre>
             <p><a href="https://app.cleantechquant.io/alerts">View all alerts →</a></p>
             <hr/>
@@ -396,7 +396,7 @@ async def _weekly_digest_async():
         )).scalars().all()
 
         # Get data from last 7 days
-        cutoff = datetime.utcnow() - timedelta(days=7)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         new_benchmarks = (await db.execute(
             select(CatalystBenchmark).where(CatalystBenchmark.created_at >= cutoff)
         )).scalars().all()
@@ -410,7 +410,7 @@ async def _weekly_digest_async():
         for user in paid_users:
             await _send_alert_email(
                 user.email,
-                f"NH₃ Intelligence Weekly Digest — {datetime.utcnow().strftime('%b %d, %Y')}",
+                f"NH₃ Intelligence Weekly Digest — {datetime.now(timezone.utc).strftime('%b %d, %Y')}",
                 {"html_content": digest_html},
             )
 
@@ -418,7 +418,7 @@ async def _weekly_digest_async():
 
 
 def _build_digest_html(benchmarks, projects) -> str:
-    date_str = datetime.utcnow().strftime("%B %d, %Y")
+    date_str = datetime.now(timezone.utc).strftime("%B %d, %Y")
     return f"""
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
       <div style="background:#0F6E56;padding:24px;border-radius:8px 8px 0 0">

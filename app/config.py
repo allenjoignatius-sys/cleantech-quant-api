@@ -1,5 +1,5 @@
 """Application configuration using Pydantic settings."""
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 import secrets
 
@@ -20,12 +20,13 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # CORS
+    # CORS & Hosts
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
         "https://app.cleantechquant.io",
         "https://cleantechquant.io",
     ]
+    ALLOWED_HOSTS: List[str] = ["*"]
 
     # Stripe
     STRIPE_SECRET_KEY: str = ""
@@ -60,9 +61,12 @@ class Settings(BaseSettings):
     AWS_S3_BUCKET: str = "cleantech-quant-reports"
     AWS_REGION: str = "us-east-1"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    # Pydantic v2 Config (replaces class Config)
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        case_sensitive=True, 
+        extra="ignore"
+    )
 
 
 settings = Settings()
