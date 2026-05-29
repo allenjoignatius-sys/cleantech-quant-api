@@ -49,3 +49,30 @@ async def get_db() -> AsyncSession:
             raise
         finally:
             await session.close()
+
+
+# ─── Redis clients ──────────────────────────────────────────────────────────
+# Construction is lazy and does not connect until first use, so importing these
+# never fails even when Redis is down (callers degrade gracefully).
+_async_redis = None
+
+
+def get_redis_client():
+    """Return a shared async Redis client (``redis.asyncio.Redis``) or None."""
+    global _async_redis
+    if _async_redis is None:
+        try:
+            from redis import asyncio as aioredis
+            _async_redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        except Exception:  # pragma: no cover - redis lib/url issues
+            return None
+    return _async_redis
+
+
+def get_redis_client_sync():
+    """Return a synchronous Redis client (for Celery tasks) or None."""
+    try:
+        import redis
+        return redis.from_url(settings.REDIS_URL, decode_responses=True)
+    except Exception:  # pragma: no cover
+        return None

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Local config & secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Generated artifacts
+*.xlsx
+*.pdf
+!docs/**/*.pdf
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

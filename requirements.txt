@@ -33,7 +33,14 @@ feedparser==6.0.11
 numpy==1.26.4
 pandas==2.2.2
 scipy==1.13.0
-statistics  # stdlib, no install needed
+
+# --- Reporting / exports ---
+openpyxl==3.1.2        # working Excel financial models (live formulas)
+reportlab==4.2.0       # automated weekly PDF briefings
+
+# --- Auth (runtime imports use PyJWT + bcrypt directly) ---
+PyJWT==2.8.0
+bcrypt==4.1.3
 
 # --- Payments ---
 stripe==9.6.0

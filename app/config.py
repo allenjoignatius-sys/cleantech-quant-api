@@ -55,6 +55,28 @@ class Settings(BaseSettings):
     # Alerts
     ALERT_CHECK_INTERVAL_MINUTES: int = 15
 
+    # ── Observability ──────────────────────────────────────────────────────────
+    LOG_LEVEL: str = "INFO"
+    LOG_JSON: bool = True
+
+    # ── Developer API rate limiting (Redis-backed) ──────────────────────────────
+    RATE_LIMIT_ENABLED: bool = True
+    API_RATE_LIMIT_PER_MINUTE: int = 60   # default for API-key (developer) traffic
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # ── LLM / NER extraction pipeline ────────────────────────────────────────────
+    # When LLM_API_KEY is set the extraction pipeline prefers structured LLM calls
+    # and falls back to the rule-based NER extractor; empty == rule-based only.
+    LLM_PROVIDER: str = ""        # "anthropic" | "openai" | ""
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = ""
+    LLM_EXTRACTION_ENABLED: bool = False
+
+    # ── Carbon market ────────────────────────────────────────────────────────────
+    CARBON_DEFAULT_EUR_PER_TONNE: float = 75.0
+    EUR_USD: float = 1.08
+    EU_ETS_FEED_URL: str = ""     # optional live price feed
+
     # S3 (for report storage)
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""

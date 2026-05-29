@@ -269,6 +269,10 @@ async def project_map(
                 "capacity_tpd_h2": r.cracker_capacity_tpd_h2,
                 "capex_usd_m": r.total_capex_usd_millions,
                 "technology_vendor": r.technology_vendor,
+                "product_type": r.product_type.value if getattr(r, "product_type", None) else "hydrogen",
+                "country": r.location_country,
+                # Traceable hyperlink back to the announcing source document
+                "source_url": r.announcement_url or r.press_release_url or r.regulatory_filing_url,
                 "target_operational": r.target_operational_date.isoformat() if r.target_operational_date else None,
             },
         })

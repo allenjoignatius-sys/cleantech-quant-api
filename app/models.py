@@ -22,6 +22,19 @@ class SubscriptionPlan(str, enum.Enum):
     analyst = "analyst"
     enterprise = "enterprise"
 
+class OrgRole(str, enum.Enum):
+    """Role-based access control levels within an Organization (workspace)."""
+    owner = "owner"      # full control incl. billing + member management
+    admin = "admin"      # manage members, trigger scrapes/syncs, manage data
+    analyst = "analyst"  # create/edit scenarios, run models, create projects
+    viewer = "viewer"    # read-only
+
+class ProductType(str, enum.Enum):
+    hydrogen = "hydrogen"
+    ammonia = "ammonia"
+    methanol = "methanol"
+    saf = "saf"
+
 class CatalystType(str, enum.Enum):
     ruthenium = "ruthenium"
     nickel = "nickel"
@@ -57,16 +70,23 @@ class User(Base):
     plan = Column(SAEnum(SubscriptionPlan), default=SubscriptionPlan.free)
     stripe_customer_id = Column(String(255), unique=True)
     is_active = Column(Boolean, default=True)
-    is_admin = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)  # platform super-admin (cross-org)
+
+    # ── Multi-tenant workspace membership + RBAC ──────────────────────────────
+    organization_id = Column(UUID, ForeignKey("organizations.id", ondelete="SET NULL"), index=True)
+    role = Column(SAEnum(OrgRole), default=OrgRole.viewer, nullable=False)
+
     requests_today = Column(Integer, default=0)
     requests_this_month = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_seen = Column(DateTime(timezone=True), onupdate=func.now())
 
+    organization = relationship("Organization", back_populates="members", foreign_keys=[organization_id])
     api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
     webhooks = relationship("Webhook", back_populates="user", cascade="all, delete-orphan")
     reports = relationship("Report", back_populates="user")
+    scenarios = relationship("Scenario", back_populates="created_by_user", foreign_keys="Scenario.created_by")
 
 
 class APIKey(Base):
@@ -85,6 +105,74 @@ class APIKey(Base):
     user = relationship("User", back_populates="api_keys")
 
     __table_args__ = (Index("ix_api_keys_key_hash", "key_hash"),)
+
+
+# ─── Organizations (Multi-tenant Workspaces) ──────────────────────────────────
+
+class Organization(Base):
+    """A team/workspace. Users belong to one org; scenarios & org-private
+    projects are shared across all members of the org."""
+    __tablename__ = "organizations"
+
+    id = Column(UUID, primary_key=True, default=gen_uuid)
+    name = Column(String(255), nullable=False)
+    slug = Column(String(120), unique=True, nullable=False, index=True)
+    plan = Column(SAEnum(SubscriptionPlan), default=SubscriptionPlan.free, nullable=False)
+    seats = Column(Integer, default=5)
+    billing_email = Column(String(255))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    members = relationship(
+        "User", back_populates="organization", foreign_keys="User.organization_id"
+    )
+    scenarios = relationship(
+        "Scenario", back_populates="organization", cascade="all, delete-orphan"
+    )
+
+
+# ─── Scenarios (Saved/Shared LCOH models for multi-scenario comparison) ────────
+
+class Scenario(Base):
+    __tablename__ = "scenarios"
+
+    id = Column(UUID, primary_key=True, default=gen_uuid)
+    organization_id = Column(
+        UUID, ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    created_by = Column(UUID, ForeignKey("users.id", ondelete="SET NULL"))
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    scenario_type = Column(String(50), default="lcoh")  # lcoh | commodity
+
+    inputs = Column(JSON, nullable=False)        # serialized LCOHInputs
+    policy = Column(JSON)                         # serialized PolicyConfig
+    product_type = Column(SAEnum(ProductType), default=ProductType.hydrogen)
+    result_cache = Column(JSON)                   # last computed LCOHResult snapshot
+
+    is_shared = Column(Boolean, default=True)     # visible to whole org
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    organization = relationship("Organization", back_populates="scenarios")
+    created_by_user = relationship("User", back_populates="scenarios", foreign_keys=[created_by])
+
+    __table_args__ = (Index("ix_scenario_org_created", "organization_id", "created_at"),)
+
+
+# ─── Carbon Market Prices (EU ETS & equivalents) ──────────────────────────────
+
+class CarbonPrice(Base):
+    __tablename__ = "carbon_prices"
+
+    id = Column(UUID, primary_key=True, default=gen_uuid)
+    market = Column(String(50), nullable=False, default="EU_ETS")  # EU_ETS | UK_ETS | CCA
+    price = Column(Float, nullable=False)         # per tonne CO2e in `currency`
+    currency = Column(String(8), default="EUR")
+    source = Column(String(255))
+    captured_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    __table_args__ = (Index("ix_carbon_market_time", "market", "captured_at"),)
 
 
 # ─── Core Data: Catalysts ─────────────────────────────────────────────────────
@@ -150,6 +238,10 @@ class DegradationCurve(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Reverse relationships (previously missing — broke mapper configuration)
+    project = relationship("Project", back_populates="degradation_curves")
+    catalyst_benchmark = relationship("CatalystBenchmark")
+
 
 # ─── Cost Models ──────────────────────────────────────────────────────────────
 
@@ -203,6 +295,11 @@ class Project(Base):
     technology_vendor = Column(String(255))
     catalyst_type = Column(SAEnum(CatalystType))
     feedstock_source = Column(String(255))   # where NH3 comes from
+    product_type = Column(SAEnum(ProductType), default=ProductType.hydrogen)
+
+    # Org scoping: NULL = global/platform project (visible to all);
+    # set = private to that organization's workspace.
+    organization_id = Column(UUID, ForeignKey("organizations.id", ondelete="SET NULL"), index=True)
 
     # Status tracking
     status = Column(String(50))  # "announced", "fid", "construction", "operational"
