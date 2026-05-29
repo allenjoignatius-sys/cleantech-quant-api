@@ -1,70 +1,67 @@
-# Cleantech Quant API — Python Dependencies
-# Install: pip install -r requirements.txt
+# ============================================================
+# Cleantech Quant API — requirements.txt (v2.0 — updated)
+# ============================================================
 
-# ─── Core API Framework ───────────────────────────────────────────────────────
+# --- Web framework ---
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
-pydantic==2.7.1
-pydantic-settings==2.3.0
+python-multipart==0.0.9
 
-# ─── Database ─────────────────────────────────────────────────────────────────
+# --- Database ---
 sqlalchemy[asyncio]==2.0.30
-asyncpg==0.29.0              # async PostgreSQL driver
-alembic==1.13.1              # migrations
-psycopg2-binary==2.9.9       # sync driver (for alembic)
+asyncpg==0.29.0
+alembic==1.13.1
+psycopg2-binary==2.9.9
 
-# ─── Authentication ───────────────────────────────────────────────────────────
-pyjwt==2.8.0
-bcrypt==4.1.3
-python-multipart==0.0.9      # form data
-
-# ─── Rate Limiting & Caching ─────────────────────────────────────────────────
-slowapi==0.1.9
+# --- Cache / Queue ---
 redis[asyncio]==5.0.4
-hiredis==2.3.2
+celery[redis]==5.3.6
 
-# ─── HTTP Scraping ────────────────────────────────────────────────────────────
-aiohttp==3.9.5
-httpx==0.27.0
-beautifulsoup4==4.12.3
-lxml==5.2.2                  # fast XML/HTML parser
-feedparser==6.0.11           # RSS/Atom feeds
+# --- Auth / Security ---
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+pydantic[email]==2.7.1
+pydantic-settings==2.2.1
 
-# ─── Data Processing ──────────────────────────────────────────────────────────
-pandas==2.2.2
+# --- HTTP client (async) ---
+httpx[http2]==0.27.0
+
+# --- RSS feed parsing (NEW: for news scraping) ---
+feedparser==6.0.11
+
+# --- Data / math ---
 numpy==1.26.4
-openpyxl==3.1.2              # Excel file reading
-xlrd==2.0.1                  # older .xls files
-scipy==1.13.0                # sensitivity analysis
+pandas==2.2.2
+scipy==1.13.0
+statistics  # stdlib, no install needed
 
-# ─── Async Task Queue ─────────────────────────────────────────────────────────
-celery[redis]==5.4.0
+# --- Payments ---
+stripe==9.6.0
 
-# ─── Report Generation ────────────────────────────────────────────────────────
-reportlab==4.2.0             # PDF generation
-jinja2==3.1.4                # HTML templates
-matplotlib==3.9.0            # chart images for reports
-seaborn==0.13.2
-
-# ─── Cloud & Storage ──────────────────────────────────────────────────────────
-boto3==1.34.110              # AWS S3 for report storage
-stripe==9.9.0                # payments
-
-# ─── Email ────────────────────────────────────────────────────────────────────
+# --- Email ---
 sendgrid==6.11.0
 
-# ─── Monitoring & Observability ───────────────────────────────────────────────
-sentry-sdk[fastapi]==2.3.1
-prometheus-fastapi-instrumentator==6.1.0
+# --- AWS ---
+boto3==1.34.107
 
-# ─── Testing ──────────────────────────────────────────────────────────────────
+# --- Monitoring ---
+sentry-sdk[fastapi]==2.2.0
+
+# --- Testing ---
 pytest==8.2.0
 pytest-asyncio==0.23.6
-httpx==0.27.0                # async test client
+httpx==0.27.0
 factory-boy==3.3.0
-faker==25.2.0
 
-# ─── Development ──────────────────────────────────────────────────────────────
-python-dotenv==1.0.1
-rich==13.7.1                 # pretty CLI output
-typer==0.12.3                # CLI management commands
+# ============================================================
+# New environment variables required (add to .env):
+#
+# ENTSOE_API_KEY=<your ENTSO-E Transparency Platform token>
+#   → Register free at: https://transparency.entsoe.eu/usrm/user/createPublicUser
+#
+# EIA_API_KEY=<your EIA Open Data API key>
+#   → Register free at: https://www.eia.gov/opendata/register.php
+#
+# Note: PubMed, arXiv, DOE OSTI, GDELT, AEMO, H2IQ, IEA 
+#       endpoints used are all free/public with no API key required.
+# ============================================================
